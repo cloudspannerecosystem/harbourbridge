@@ -46,6 +46,7 @@ var (
 	dataOnly         bool
 	sessionJSON      string
 	webapi           bool
+	useExistingDb    bool
 )
 
 func init() {
@@ -59,6 +60,7 @@ func init() {
 	flag.BoolVar(&dataOnly, "data-only", false, "data-only: in this mode we skip schema conversion and just do data conversion (use the session flag to specify the session file for schema and data mapping)")
 	flag.StringVar(&sessionJSON, "session", "", "session: specifies the file we restore session state from (used in schema-only to provide schema and data mapping)")
 	flag.BoolVar(&webapi, "web", false, "web: run the web interface (experimental)")
+	flag.BoolVar(&useExistingDb, "useExistingDb", false, "useExistingDb: will use an existing database, make sure it is an empty database.")
 }
 
 func usage() {
@@ -132,7 +134,7 @@ func main() {
 		panic(fmt.Errorf("when using data-only mode, the session must specify the session file to use"))
 	}
 
-	err = commandLine(driverName, project, instance, dbName, ioHelper, filePrefix, now)
+	err = commandLine(driverName, project, instance, dbName, ioHelper, filePrefix, now, useExistingDb)
 	if err != nil {
 		panic(err)
 	}
@@ -145,7 +147,7 @@ func main() {
 // 2. Create database
 // 3. Run data conversion
 // 4. Generate report
-func commandLine(driver, projectID, instanceID, dbName string, ioHelper *conversion.IOStreams, outputFilePrefix string, now time.Time) error {
+func commandLine(driver, projectID, instanceID, dbName string, ioHelper *conversion.IOStreams, outputFilePrefix string, now time.Time, useExistingDb bool) error {
 	var conv *internal.Conv
 	var err error
 	if !dataOnly {
@@ -170,11 +172,19 @@ func commandLine(driver, projectID, instanceID, dbName string, ioHelper *convers
 			return err
 		}
 	}
-
-	db, err := conversion.CreateDatabase(projectID, instanceID, dbName, conv, ioHelper.Out)
-	if err != nil {
-		fmt.Printf("\nCan't create database: %v\n", err)
-		return fmt.Errorf("can't create database")
+	db := fmt.Sprintf("projects/%s/instances/%s/databases/%s", projectID, instanceID, dbName)
+	if useExistingDb {
+		err = conversion.UpdateDDL(projectID, instanceID, dbName, conv, ioHelper.Out)
+		if err != nil {
+			fmt.Printf("\nCan't update database with new schema: %v\n", err)
+			return fmt.Errorf("can't update existing database, consider a fresh database")
+		}
+	} else {
+		db, err = conversion.CreateDatabase(projectID, instanceID, dbName, conv, ioHelper.Out)
+		if err != nil {
+			fmt.Printf("\nCan't create database: %v\n", err)
+			return fmt.Errorf("can't create database")
+		}
 	}
 
 	client, err := conversion.GetClient(db)
