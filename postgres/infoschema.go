@@ -281,19 +281,16 @@ func processColumns(conv *internal.Conv, cols *sql.Rows, constraints map[string]
 			conv.Unexpected(fmt.Sprintf("Can't scan: %v", err))
 			continue
 		}
-		unique := false
 		ignored := schema.Ignored{}
 		for _, c := range constraints[colName] {
 			// c can be UNIQUE, PRIMARY KEY, FOREIGN KEY,
 			// or CHECK (based on msql, sql server, postgres docs).
 			// We've already filtered out PRIMARY KEY.
 			switch c {
-			case "UNIQUE":
-				unique = true
 			case "CHECK":
 				ignored.Check = true
-			case "FOREIGN KEY", "PRIMARY KEY":
-				// Nothing to do here -- these are both handled elsewhere.
+			case "FOREIGN KEY", "PRIMARY KEY", "UNIQUE":
+				// Nothing to do here -- these are handled elsewhere.
 			}
 		}
 		ignored.Default = colDefault.Valid
@@ -301,7 +298,6 @@ func processColumns(conv *internal.Conv, cols *sql.Rows, constraints map[string]
 			Name:    colName,
 			Type:    toType(dataType, elementDataType, charMaxLen, numericPrecision, numericScale),
 			NotNull: toNotNull(conv, isNullable),
-			Unique:  unique,
 			Ignored: ignored,
 		}
 		colDefs[colName] = c

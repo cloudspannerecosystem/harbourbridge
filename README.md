@@ -364,9 +364,9 @@ It is also possible to configure access via pg_dump's command-line options
 #### 1.2 Direct access to PostgreSQL
 
 In this case, HarbourBridge connects directly to the PostgreSQL
-database to retrieve table schema and data using the setting of
-standard _PGHOST_, _PGPORT_, _PGUSER_, _PGDATABASE_ environment
-variables. Password can be specified either in the _PGPASSWORD_
+database to retrieve table schema and data. Set the --driver='postgres'
+and provide the environment variables _PGHOST_, _PGPORT_, _PGUSER_, 
+_PGDATABASE_. Password can be specified either in the _PGPASSWORD_
 environment variable or provided at the password prompt.
 
 #### 1.3 mysqldump
@@ -381,9 +381,9 @@ database. See the [mysql](https://dev.mysql.com/doc/refman/8.0/en/mysql-commands
 #### 1.4 Direct access to MySQL
 
 In this case, HarbourBridge connects directly to the MySQL
-database to retrieve table schema and data using the setting of
-_MYSQLHOST_, _MYSQLPORT_, _MYSQLUSER_, _MYSQLDATABASE_ environment
-variables. Password can be specified either in the _MYSQLPWD_
+database to retrieve table schema and data. Set the --driver='mysql'
+and provide the environment variables _MYSQLHOST_, _MYSQLPORT_, _MYSQLUSER_, 
+_MYSQLDATABASE_. Password can be specified either in the _MYSQLPWD_
 environment variable or provided at the password prompt.
 
 ### 2. Verify dump output

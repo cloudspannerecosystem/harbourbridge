@@ -209,6 +209,7 @@ func processCreateTable(conv *internal.Conv, stmt *ast.CreateTableStmt) {
 		return
 	}
 	tableName, err := getTableName(stmt.Table)
+	internal.VerbosePrintf("processing create table elem=%s stmt=%v\n", tableName, stmt)
 	if err != nil {
 		logStmtError(conv, stmt, fmt.Errorf("can't get table name: %w", err))
 		return
@@ -328,13 +329,10 @@ func updateCols(conv *internal.Conv, ct ast.ConstraintType, colNames []*ast.Inde
 		colName := column.Column.OrigColName()
 		cd := colDef[colName]
 		switch ct {
-		case ast.ConstraintUniq:
-			cd.Unique = true
 		case ast.ConstraintCheck:
 			cd.Ignored.Check = true
 		case ast.ConstraintPrimaryKey:
 			cd.NotNull = true
-			cd.Unique = true
 		}
 		colDef[colName] = cd
 	}
@@ -449,7 +447,6 @@ func updateColsByOption(conv *internal.Conv, tableName string, col *ast.ColumnDe
 		switch op := elem.Tp; op {
 		case ast.ColumnOptionPrimaryKey:
 			column.NotNull = true
-			column.Unique = true
 			// If primary key is defined in a column then `isPk` will be true
 			// and this column will be added in colDef as primary keys.
 			cc.isPk = true
@@ -468,7 +465,6 @@ func updateColsByOption(conv *internal.Conv, tableName string, col *ast.ColumnDe
 				column.Ignored.Default = true
 			}
 		case ast.ColumnOptionUniqKey:
-			column.Unique = true
 			cc.isUniqueKey = true
 		case ast.ColumnOptionCheck:
 			column.Ignored.Check = true

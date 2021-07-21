@@ -47,7 +47,6 @@ type Column struct {
 	Name    string
 	Type    Type
 	NotNull bool
-	Unique  bool
 	Ignored Ignored
 }
 
