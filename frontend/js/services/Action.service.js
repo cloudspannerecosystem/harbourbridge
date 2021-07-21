@@ -929,11 +929,11 @@ const Actions = (() => {
             return Store.getCurrentPageNumber(idx)
         },
 
-        changePage: (tableIndex,pageindex) => {
-            if(Actions.getCurrentPageNumber(tableIndex) == pageindex){
+        changePage: (tableIndex, pageindex) => {
+            if (Actions.getCurrentPageNumber(tableIndex) == pageindex) {
                 Actions.hideSpinner();
             }
-            Store.setPageNumber(tableIndex,pageindex);
+            Store.setPageNumber(tableIndex, pageindex);
         }
 
 

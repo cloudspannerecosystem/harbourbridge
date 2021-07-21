@@ -16,81 +16,81 @@ import "../../services/Fetch.service.js";
 
 class SchemaConversionScreen extends HTMLElement {
 
-  get testing(){
-    return this.getAttribute("testing");
-  }
-
-  connectedCallback() {
-    this.stateObserver = setInterval(this.observeState, 150);
-    Actions.showSpinner()
-    this.render();
-  }
-
-  disconnectedCallback() {
-    clearInterval(this.stateObserver);
-  }
-
-  sendDatatoReportTab(tableNameArray, currentTabContent) {
-      for (let i = 0; i < tableNameArray.length; i++) {
-        let filterdata = {
-          SpSchema: currentTabContent.SpSchema[tableNameArray[i]],
-          SrcSchema: currentTabContent.SrcSchema[tableNameArray[i]],
-          ToSource: currentTabContent.ToSource[tableNameArray[i]],
-          ToSpanner: currentTabContent.ToSpanner[tableNameArray[i]],
-          summary : Store.getinstance().tableData["summaryTabContent"][tableNameArray[i]],
-          currentPageNumber : Actions.getCurrentPageNumber(i)
-        };
-        let component = document.querySelector(`#reportTab${i}`);
-        component.data = filterdata;
-      }
-  }
-
-  set Data(data) {
-      this.data = data;
-      this.render();
-  }
-
-  getChangingValue(currentTab) {
-    currentTab = currentTab.substring(0, currentTab.length - 3);
-    let currentArray = Actions.carouselStatus(currentTab);
-    let flag = "Expand All";
-    for (let i = 0; i < currentArray.length; i++) {
-      if (currentArray[i] == true) {
-        flag = "Collapse All";
-      }
+    get testing() {
+        return this.getAttribute("testing");
     }
-    return flag;
-  }
 
-  observeState = () => {
-    let updatedData = Store.getinstance();
-    if (JSON.stringify(updatedData) !== JSON.stringify(this.data)) {
-      this.data = JSON.parse(JSON.stringify(updatedData));
-      this.render();
+    connectedCallback() {
+        this.stateObserver = setInterval(this.observeState, 150);
+        Actions.showSpinner()
+        this.render();
     }
-  };
 
-  render() {
-    if (!this.data) {
-      return;
+    disconnectedCallback() {
+        clearInterval(this.stateObserver);
     }
-    const { currentTab, tableData, tableBorderData,searchInputValue } = this.data;
-    let currentTabContent = tableData[`${currentTab}Content`];
-    if(Object.keys(currentTabContent).length == 0) {
-      Actions.hideSpinner();
-      return;
+
+    sendDatatoReportTab(tableNameArray, currentTabContent) {
+        for (let i = 0; i < tableNameArray.length; i++) {
+            let filterdata = {
+                SpSchema: currentTabContent.SpSchema[tableNameArray[i]],
+                SrcSchema: currentTabContent.SrcSchema[tableNameArray[i]],
+                ToSource: currentTabContent.ToSource[tableNameArray[i]],
+                ToSpanner: currentTabContent.ToSpanner[tableNameArray[i]],
+                summary: Store.getinstance().tableData["summaryTabContent"][tableNameArray[i]],
+                currentPageNumber: Actions.getCurrentPageNumber(i)
+            };
+            let component = document.querySelector(`#reportTab${i}`);
+            component.data = filterdata;
+        }
     }
-    const changingText = this.getChangingValue(currentTab);
-    let tableNameArray;
-    if (currentTab === "reportTab") {
-      tableNameArray = Object.keys(currentTabContent.SpSchema)
-                            .filter((title)=>title.indexOf(searchInputValue[currentTab]) > -1);
-    } else {
-      tableNameArray = Object.keys(currentTabContent)
-                            .filter((title)=>title.indexOf(searchInputValue[currentTab]) > -1);
+
+    set Data(data) {
+        this.data = data;
+        this.render();
     }
-    
-    this.innerHTML = `
+
+    getChangingValue(currentTab) {
+        currentTab = currentTab.substring(0, currentTab.length - 3);
+        let currentArray = Actions.carouselStatus(currentTab);
+        let flag = "Expand All";
+        for (let i = 0; i < currentArray.length; i++) {
+            if (currentArray[i] == true) {
+                flag = "Collapse All";
+            }
+        }
+        return flag;
+    }
+
+    observeState = () => {
+        let updatedData = Store.getinstance();
+        if (JSON.stringify(updatedData) !== JSON.stringify(this.data)) {
+            this.data = JSON.parse(JSON.stringify(updatedData));
+            this.render();
+        }
+    };
+
+    render() {
+        if (!this.data) {
+            return;
+        }
+        const { currentTab, tableData, tableBorderData, searchInputValue } = this.data;
+        let currentTabContent = tableData[`${currentTab}Content`];
+        if (Object.keys(currentTabContent).length == 0) {
+            Actions.hideSpinner();
+            return;
+        }
+        const changingText = this.getChangingValue(currentTab);
+        let tableNameArray;
+        if (currentTab === "reportTab") {
+            tableNameArray = Object.keys(currentTabContent.SpSchema)
+                .filter((title) => title.indexOf(searchInputValue[currentTab]) > -1);
+        } else {
+            tableNameArray = Object.keys(currentTabContent)
+                .filter((title) => title.indexOf(searchInputValue[currentTab]) > -1);
+        }
+
+        this.innerHTML = `
     <div class="summary-main-content" id='schema-screen-content'>
       <div id="snackbar"></div>
       <div>

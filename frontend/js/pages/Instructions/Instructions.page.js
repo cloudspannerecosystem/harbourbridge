@@ -5,7 +5,7 @@ class Instructions extends HTMLElement {
     connectedCallback() {
         this.render();
         setActiveSelectedMenu('instructions');
-   }
+    }
 
     render() {
         this.innerHTML = `
