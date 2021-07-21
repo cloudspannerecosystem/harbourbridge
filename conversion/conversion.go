@@ -438,13 +438,9 @@ func CreateDatabase(project, instance, dbName string, conv *internal.Conv, out *
 
 // UpdateDDLForeignKeys updates the Spanner database with foreign key
 // constraints using ALTER TABLE statements.
-func UpdateDDLForeignKeys(project, instance, dbName string, conv *internal.Conv, out *os.File) error {
+func UpdateDDLForeignKeys(project, instance, dbName string, maxWorkers int64, conv *internal.Conv, out *os.File) error {
 	ctx := context.Background()
-	adminClient, err := database.NewDatabaseAdminClient(ctx)
-	if err != nil {
-		return fmt.Errorf("can't create admin client: %w\n", analyzeError(err, project, instance))
-	}
-	defer adminClient.Close()
+
 	// The schema we send to Spanner excludes comments (since Cloud
 	// Spanner DDL doesn't accept them), and protects table and col names
 	// using backticks (to avoid any issues with Spanner reserved words).
@@ -452,28 +448,69 @@ func UpdateDDLForeignKeys(project, instance, dbName string, conv *internal.Conv,
 	if len(fkStmts) == 0 {
 		return nil
 	}
-	msg := fmt.Sprintf("Updating schema of database %s in instance %s with foreign key constraints ...", dbName, instance)
+	msg := fmt.Sprintf("Updating schema of database %s in instance %s with foreign key constraints ...\n", dbName, instance)
 	p := internal.NewProgress(int64(len(fkStmts)), msg, internal.Verbose())
-	for i, fkStmt := range fkStmts {
-		// TODO: Improve performance of the foreign key constraint updates.
-		// For example, issue all of the update ops first before waiting for them to complete
-		// so that that can execute in parallel. We could also print out ids of the
-		// long-running operations.
-		op, err := adminClient.UpdateDatabaseDdl(ctx, &adminpb.UpdateDatabaseDdlRequest{
-			Database:   fmt.Sprintf("projects/%s/instances/%s/databases/%s", project, instance, dbName),
-			Statements: []string{fkStmt},
-		})
-		if err != nil {
-			fmt.Printf("Can't add foreign key with statement %s: %s\n", fkStmt, err)
-			conv.Unexpected(fmt.Sprintf("Can't add foreign key with statement %s: %s", fkStmt, err))
-			continue
+
+	type Result struct {
+		fkStmt string
+		err    error
+	}
+	fkStmtsChan := make(chan string, len(fkStmts))
+	results := make(chan Result, len(fkStmts))
+
+	for _, fkStmt := range fkStmts {
+		fkStmtsChan <- fkStmt
+	}
+	close(fkStmtsChan)
+
+	// We dispatch parallel foreign key create requests to ensure the backfill runs in parallel to reduce overall time.
+	// This cuts down the time taken to a third (approx) compared to Serial and Batched creation. We also do not want to create
+	// too many requests and get throttled due to network or hitting catalog memory limits.
+	// Spawn `maxWorkers` go routines that each read one fkStatement from the fkStmtsQueue channel.
+	// On succesful creation of a foreign key, push a Pair to the results channel where Pair.b is 1
+	// on success and 0 on failure.
+	for i := int64(1); i <= maxWorkers; i++ {
+		go func(fkStmtsChan <-chan string, results chan<- Result) {
+
+			for fkStmt := range fkStmtsChan {
+				adminClient, err := database.NewDatabaseAdminClient(ctx)
+				if err != nil {
+					fmt.Printf("can't create admin client: %s\n", analyzeError(err, project, instance))
+					conv.Unexpected(fmt.Sprintf("can't create admin client: %s\n", analyzeError(err, project, instance)))
+					continue
+				}
+				defer adminClient.Close()
+				fmt.Printf("Submitting new FK create request for %s: %s\n", dbName, fkStmt[35:45])
+				op, err := adminClient.UpdateDatabaseDdl(ctx, &adminpb.UpdateDatabaseDdlRequest{
+					Database:   fmt.Sprintf("projects/%s/instances/%s/databases/%s", project, instance, dbName),
+					Statements: []string{fkStmt},
+				})
+				if err != nil {
+					fmt.Printf("Cannot submit request for create foreign key with statement %s: %s\n", fkStmt, err)
+					conv.Unexpected(fmt.Sprintf("Can't add foreign key with statement %s: %s", fkStmt, err))
+					results <- Result{fkStmt, err}
+					continue
+				}
+				if err := op.Wait(ctx); err != nil {
+					fmt.Printf("Can't add foreign key with statement %s: %s\n", fkStmt, err)
+					conv.Unexpected(fmt.Sprintf("Can't add foreign key with statement %s: %s", fkStmt, err))
+					results <- Result{fkStmt, err}
+					continue
+				}
+				internal.VerbosePrintln("Updated schema with statement: " + fkStmt)
+				results <- Result{fkStmt, nil}
+			}
+		}(fkStmtsChan, results)
+	}
+	progress := int64(0)
+	for i := 1; i <= len(fkStmts); i++ {
+		result := <-results
+		fmt.Printf("Got result: %s %s\n", result.fkStmt[35:45], result.err)
+		if result.err == nil {
+			fmt.Printf("Updating progress cuz %s returned %s\n", result.fkStmt[35:45], result.err)
+			progress++
+			p.MaybeReport(progress)
 		}
-		if err := op.Wait(ctx); err != nil {
-			fmt.Printf("Can't add foreign key with statement %s: %s\n", fkStmt, err)
-			conv.Unexpected(fmt.Sprintf("Can't add foreign key with statement %s: %s", fkStmt, err))
-		}
-		internal.VerbosePrintln("Updated schema with statement: " + fkStmt)
-		p.MaybeReport(int64(i + 1))
 	}
 	p.Done()
 	return nil

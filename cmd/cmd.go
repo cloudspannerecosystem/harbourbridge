@@ -28,6 +28,9 @@ var (
 	reportFile  = "report.txt"
 	schemaFile  = "schema.txt"
 	sessionFile = "session.json"
+
+	// Set the maximum number of concurrent workers during foreign key creation.
+	maxWorkers = int64(10)
 )
 
 // CommandLine provides the core processing for HarbourBridge when run as a command-line tool.
@@ -80,7 +83,7 @@ func CommandLine(driver, projectID, instanceID, dbName string, dataOnly, schemaO
 		return fmt.Errorf("can't finish data conversion")
 	}
 	if !skipForeignKeys {
-		if err = conversion.UpdateDDLForeignKeys(projectID, instanceID, dbName, conv, ioHelper.Out); err != nil {
+		if err = conversion.UpdateDDLForeignKeys(projectID, instanceID, dbName, maxWorkers, conv, ioHelper.Out); err != nil {
 			fmt.Printf("\nCan't perform update operation on db %s with foreign keys: %v\n", db, err)
 			return fmt.Errorf("can't perform update schema with foreign keys")
 		}
